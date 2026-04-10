@@ -1,0 +1,8 @@
+{
+  "include": ["srcM", "configM"],
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Linux",
+  "extraPaths": [".", "srcM"],
+  "typeCheckingMode": "basic",
+  "reportMissingImports": true
+}

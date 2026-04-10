@@ -1,8 +1,8 @@
 import feedparser
 # Use a pipeline as a high-level helper
 from transformers import pipeline
-ticker='MSFT'
-keyword='microsoft'
+ticker='GS'
+keyword='Goldman Sachs'
 
 pipe = pipeline("text-classification", model="ProsusAI/finbert")
 
@@ -151,8 +151,9 @@ def plot_sentiment_meter(final_score):
     
     plt.tight_layout()
     plt.savefig(f"result {ticker}.png")
-    plt.show()
-    
+    plt.tight_layout()
+    plt.savefig("results/sentiment_plot.png")
+    print("plot saved to results/sentiment_plot.png")    
 
 plot_sentiment_meter(final_score)
 
