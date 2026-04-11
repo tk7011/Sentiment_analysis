@@ -27,14 +27,29 @@ def load_raw_news(file_path: Path) -> List[Dict[str, str]]:
     return articles
 
 
-def clean_text(text: str) -> str:
-    """Clean and normalize text."""
+def clean_text_for_sentiment(text: str) -> str:
+    """Clean text while preserving sentiment signals."""
     if not text or not isinstance(text, str):
         return ""
-    text = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', text)
+    # Remove URLs
+    text = re.sub(r'http[s]?://\S+', '', text)
+    # Remove HTML tags
+    text = re.sub(r'<[^>]+>', '', text)
+    # Remove HTML entities
+    text = re.sub(r'&[a-zA-Z]+;', '', text)
+    # Preserve punctuation, normalize whitespace only
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
+def clean_text_basic(text: str) -> str:
+    """Clean text with minimal changes for validation only."""
+    if not text or not isinstance(text, str):
+        return ""
+    text = re.sub(r'http[s]?://\S+', '', text)
     text = re.sub(r'<[^>]+>', '', text)
     text = re.sub(r'&[a-zA-Z]+;', '', text)
-    text = re.sub(r'\s+', ' ', text).strip().lower()
+    text = re.sub(r'\s+', ' ', text).strip()
     return text
 
 
@@ -50,12 +65,12 @@ def parse_timestamp(timestamp_str: str) -> str:
 
 
 def combine_article_text(article: Dict[str, Any]) -> str:
-    """Combine title, description, and content into a single text field."""
+    """Combine title, description, and content for validation purposes."""
     parts = []
     for field in ["title", "description", "content"]:
         text = article.get(field, "")
         if text:
-            parts.append(clean_text(text))
+            parts.append(clean_text_basic(text))
     return " ".join(parts)
 
 
@@ -116,11 +131,14 @@ def preprocess_articles(data: List[Dict[str, str]]) -> tuple[List[Dict[str, str]
             if not article.get("content"):
                 metrics["missing_content"] += 1
             
+            # Prepare sentiment-safe text for analysis
+            text_for_analysis = clean_text_for_sentiment(combined_text)
+            
             processed_article = {
-                "title": clean_text(article.get("title", "")),
-                "description": clean_text(article.get("description", "")),
-                "content": clean_text(article.get("content", "")),
-                "combined_text": combined_text,
+                "title": article.get("title", ""),
+                "description": article.get("description", ""),
+                "content": article.get("content", ""),
+                "text_for_analysis": text_for_analysis,
                 "url": article.get("url", ""),
                 "published_at": parse_timestamp(article.get("published_at", "")),
                 "source": article.get("source_name", ""),
@@ -139,18 +157,45 @@ def preprocess_articles(data: List[Dict[str, str]]) -> tuple[List[Dict[str, str]
     return processed, metrics
 
 
-def save_processed_news(file_path: Path, articles: List[Dict[str, str]]) -> None:
-    """Save processed articles to CSV."""
+def save_processed_news(file_path: Path, articles: List[Dict[str, str]]) -> int:
+    """Save processed articles to CSV, appending to existing file if present.
+    
+    Returns: Number of new articles added.
+    """
     if not articles:
-        return
+        return 0
     
-    fieldnames = ["title", "description", "content", "combined_text", "url", "published_at", "source", "author", "image_url"]
+    fieldnames = ["title", "description", "content", "text_for_analysis", "url", "published_at", "source", "author", "image_url"]
+    file_exists = file_path.exists()
     
-    with open(file_path, "w", newline="", encoding="utf-8") as f:
+    # If file exists, read existing URLs to avoid duplicates
+    existing_urls = set()
+    if file_exists:
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if row.get("url"):
+                        existing_urls.add(row["url"])
+        except Exception as e:
+            print(f"  Warning: Could not read existing file {file_path.name}: {e}")
+    
+    # Filter out duplicate URLs
+    new_articles = [a for a in articles if a.get("url") not in existing_urls]
+    
+    if not new_articles:
+        return 0
+    
+    # Append to file
+    with open(file_path, "a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        for article in articles:
+        # Write header only if file is new
+        if not file_exists:
+            writer.writeheader()
+        for article in new_articles:
             writer.writerow({key: article.get(key, "") for key in fieldnames})
+    
+    return len(new_articles)
 
 
 def save_quality_metrics(file_path: Path, metrics: Dict[str, int]) -> None:
@@ -163,17 +208,18 @@ def save_quality_metrics(file_path: Path, metrics: Dict[str, int]) -> None:
 
 
 def main():
-    """Process all raw news files."""
+    """Process all raw news files from timeframe subdirectories."""
     PROCESSED_DATA_DIR.mkdir(parents=True, exist_ok=True)
     
     if not RAW_DATA_DIR.exists():
         print(f"Raw data directory not found: {RAW_DATA_DIR}")
         return
     
-    raw_files = sorted(RAW_DATA_DIR.glob("news_*.csv"))
+    # Search for news files in subdirectories (1/, 5/, 10/, etc.)
+    raw_files = sorted(RAW_DATA_DIR.glob("*/news_*.csv"))
     
     if not raw_files:
-        print(f"No news files found in {RAW_DATA_DIR}")
+        print(f"No news files found in {RAW_DATA_DIR}/*/ subdirectories")
         return
     
     print(f"\n📰 Processing {len(raw_files)} file(s)...\n")
@@ -191,21 +237,25 @@ def main():
     }
     
     for raw_file in raw_files:
-        print(f"  Processing {raw_file.name}...")
+        timeframe = raw_file.parent.name
+        timeframe_dir = PROCESSED_DATA_DIR / f"{timeframe}_days_processed"
+        timeframe_dir.mkdir(parents=True, exist_ok=True)
+        
+        print(f"  Processing {timeframe}/{raw_file.name}...")
         try:
             data = load_raw_news(raw_file)
             articles, metrics = preprocess_articles(data)
             
-            output_file = PROCESSED_DATA_DIR / f"processed_{raw_file.stem}.csv"
-            save_processed_news(output_file, articles)
-            
-            metrics_file = PROCESSED_DATA_DIR / f"metrics_{raw_file.stem}.csv"
-            save_quality_metrics(metrics_file, metrics)
+            output_file = timeframe_dir / f"processed_{raw_file.stem}.csv"
+            new_count = save_processed_news(output_file, articles)
             
             for key in total_metrics:
                 total_metrics[key] += metrics.get(key, 0)
             
-            print(f"    ✓ Saved {len(articles)} articles to {output_file.name}")
+            if new_count > 0:
+                print(f"    ✓ Added {new_count} new articles to {timeframe_dir.name}/{output_file.name}")
+            else:
+                print(f"    ℹ No new articles (all {len(articles)} were duplicates)")
             print(f"      • Duplicates: {metrics['duplicates_removed']}, Too short: {metrics['too_short']}")
             
         except Exception as e:
