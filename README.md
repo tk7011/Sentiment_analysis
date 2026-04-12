@@ -1,4 +1,4 @@
-# Martin News Sentiment Analysis
+# News Sentiment Analysis
 ## Project Structure
 
 ```
