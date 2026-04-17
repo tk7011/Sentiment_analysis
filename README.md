@@ -3,13 +3,13 @@
 
 ```
 martin-news-sentiment/
-├── srcM/                          # Source code
+├── src/                          # Source code
 │   ├── data/
 │   │   ├── fetch_news.py         # Fetch news from NewsAPI
 │   │   └── preprocess_news.py    # Preprocess raw articles
 │   └── sentiment/
 │       └── rule_based.py         # Rule-based sentiment analysis
-├── configM/
+├── configs/
 │   └── stocks.py                 # Stock list (8 sectors)
 ├── dataM/
 │   ├── raw/                      # Raw CSV responses from API
