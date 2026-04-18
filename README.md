@@ -4,7 +4,7 @@
 ```
 martin-news-sentiment/
 ├── src/                          # Source code
-│   ├── get_data/
+│   ├── data/
 │   │   ├── fetch_news.py         # Fetch news from NewsAPI
 │   │   └── preprocess_news.py    # Preprocess raw articles
 │   └── analysis/
