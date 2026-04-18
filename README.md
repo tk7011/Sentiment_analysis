@@ -13,7 +13,6 @@ martin-news-sentiment/
 │   └── stocks.py                 # Stock list (8 sectors)
 ├── dataM/
 │   ├── raw/                      # Raw CSV responses from API
-│   ├── interim/                  # Intermediate data files
 │   └── processed/                # Preprocessed articles
 ├── resultsM/                      # Sentiment analysis results
 ├── experimentsM/                  # Experimental notebooks/scripts
