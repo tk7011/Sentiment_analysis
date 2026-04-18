@@ -7,8 +7,8 @@ martin-news-sentiment/
 │   ├── data/
 │   │   ├── fetch_news.py         # Fetch news from NewsAPI
 │   │   └── preprocess_news.py    # Preprocess raw articles
-│   └── sentiment/
-│       └── rule_based.py         # Rule-based sentiment analysis
+│   └── analysis/
+│       └── run_sentiment.py.py   # NLP sentiment analysis
 ├── configs/
 │   └── stocks.py                 # Stock list (8 sectors)
 ├── dataM/
